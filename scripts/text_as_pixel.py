@@ -192,6 +192,7 @@ def do_text_as_pixel(image_fname, out_fname, font_fname, fmt='img',
     
     return out
 
+'''
 # DEMO:
 result = do_text_as_pixel(image_fname='../img/demo.jpg', out_fname = '../results/demo_result.jpg',
                        font_fname='../fonts/PTM55FT.ttf', FONT_SIZE=16, 
@@ -199,3 +200,4 @@ result = do_text_as_pixel(image_fname='../img/demo.jpg', out_fname = '../results
                        analysis_fname=None, linespace=4, lum_div=15,
                        grid_nx=200, grid_ny=None, interpolation=np.median,
                        whitepoint=.8, blackpoint=.00)
+'''

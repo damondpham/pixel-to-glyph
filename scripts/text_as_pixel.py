@@ -43,7 +43,7 @@ def write_text_as_pixel(str_array, out_fname, fmt='img',
         image.save(out_fname)
 
 def do_text_as_pixel(image_fname, out_fname, font_fname, fmt='img',
-	FONT_SIZE=36, glyphs=None, lum_divs=5,
+	FONT_SIZE=36, glyphs=None, lum_div=5,
     analysis_fname=None, linespace=4,
     grid_nx=None, grid_ny=None, interpolation=np.median,
     whitepoint=1, blackpoint=0):
@@ -58,12 +58,12 @@ def do_text_as_pixel(image_fname, out_fname, font_fname, fmt='img',
         FONT_SIZE (int): The font size to use.
         glyphs (str): A string containing the posssible characters 
         	to use. If none, all glyphs will be considered.
-        lum_divs (int): An integer from 1 to 100. If not None, the 
+        lum_div (int): An integer from 1 to 100. If not None, the 
         	luminosity percentiles of the glyphs will be rounded to 
-        	this many values. A low `lum_divs` will have lower 
+        	this many values. A low `lum_div` will have lower 
         	luminosity resolution, but higher color resolution since
         	more glyphs will be available for a given luminosity. 
-        	A high `lum_divs` (or None value) will have higher
+        	A high `lum_div` (or None value) will have higher
         	luminosity resolution but lower color resolutionn.
         	I find a `lum_div` of ~8-10 is best for most images.
         analysis_fname (str): The name of a font analysis file for
@@ -145,8 +145,8 @@ def do_text_as_pixel(image_fname, out_fname, font_fname, fmt='img',
     ## The darkest will be 0, and lightest will be 100.
     df['lum_pct'] = ((whitepoint - df['darkness']/np.max(df['darkness'])*(whitepoint-blackpoint))*100).astype(int)
 
-    # Group luminosity percentiles into `lum_divs` groups. Sort by luminosity percentile.
-    if lum_divs is not None: df['lum_pct'] = np.round(np.round(df['lum_pct'] /100 *lum_divs) *100 /lum_divs)
+    # Group luminosity percentiles into `lum_div` groups. Sort by luminosity percentile.
+    if lum_div is not None: df['lum_pct'] = np.round(np.round(df['lum_pct'] /100 *lum_div) *100 /lum_div)
     df = df.iloc[np.argsort(df['lum_pct']),:].reset_index(drop=True)
 
     # Count the number of glyphs at each luminosity percentile value. 
@@ -193,9 +193,9 @@ def do_text_as_pixel(image_fname, out_fname, font_fname, fmt='img',
     return out
 
 # DEMO:
-#result = do_text_as_pixel(image_fname='../img/demo6.png', out_fname = '../results/demo6_result.jpg',
-#                       font_fname='../fonts/PTM55FT.ttf', FONT_SIZE=16, 
-#                       glyphs='THIS is a TEST! :) @#$%^&76940',
-#                       analysis_fname=None, linespace=4, lum_divs=10,
-#                       grid_nx=200, grid_ny=None, interpolation=np.median,
-#                       whitepoint=.95, blackpoint=.05)
+result = do_text_as_pixel(image_fname='../img/demo.jpg', out_fname = '../results/demo_result.jpg',
+                       font_fname='../fonts/PTM55FT.ttf', FONT_SIZE=16, 
+                       glyphs=' !*^,.:[]|- hong kong HONG KONG',
+                       analysis_fname=None, linespace=4, lum_div=15,
+                       grid_nx=200, grid_ny=None, interpolation=np.median,
+                       whitepoint=.8, blackpoint=.00)

@@ -1,114 +1,95 @@
+import os
 import numpy as np
 import pandas as pd
-import os
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from PIL import Image, ImageFont, ImageDraw
 from decolorize import decolorize
 from sklearn.decomposition import PCA
 from analyze_font import load_font, analyze_font
+from utils import pca_proj, round_to_nearest_value, image_to_grid
 
-image_fname='../img/apple.jpg'
-font_fname='../fonts/cour.ttf'
-FONT_SIZE=36
-grid_nx=120
-grid_ny=None
-analysis_fname=None
-linespace=4
-interpolation=np.median
+def write_text_as_pixel(str_array, out_fname, fmt='img', 
+    font=None, CHAR_WIDTH=None, CHAR_HEIGHT=None):
+    '''
+    Writes a text-as-pixel array of glyphs/characters into a file.
 
-def write_output(str_array, out_fname, format='text', 
-                 font=None, df=None, linespace=4):
+    Parameters:
+        str_array (numpy.array): The text-as-pixel array of length-one strings.
+        out_fname (str): The file to save to. Should be compatible with `fmt`.
+        fmt (str): Either 'text' for a text file, or 'img' for an image file. 
+        font (PIL.ImageFont font): The font to use for an image output.
+        CHAR_WIDTH (int): The width of each glyph, to use for an image output.
+        CHAR_HEIGHT (int): The height of each glyph, including the line space,
+        	to use for an image output.
+
+    Returns:
+        None. 
+    '''
     newlines = np.array(['\n' for _ in range(len(str_array))]).reshape((len(str_array), 1))
     str_array = np.append(str_array, newlines, axis = 1)
     shape = np.shape(str_array)
     out = ''.join(str_array.flatten())
     
-    if format == 'text':
+    if fmt == 'text':
         with open(out_fname, "w") as f: print(out, file=f)
         
-    if format == 'img':
-        WIDTH = (df.at[0, 'width']-1) * shape[1]
-        HEIGHT = (np.min(df['height']) + linespace) * shape[0]
+    if fmt == 'img':
+        WIDTH = CHAR_WIDTH * (shape[1] - 1)
+        HEIGHT = CHAR_HEIGHT * shape[0]
         image = Image.new('1', (WIDTH, HEIGHT), color=1)
         draw = ImageDraw.Draw(image)
         draw.text((0,0), out, font=font)
         image.save(out_fname)
-    
-def pca_proj(array, dim=1):
-    svd = np.linalg.svd(array, full_matrices=False)
-    svd[1][dim:] = 0
-    proj = svd[0].dot(np.diag(svd[1])).dot(svd[2])
-    return proj
 
-def round_to_nearest_value(array, values, get_index=False):
-    values = np.array(values)
-    array = np.array(array)
-    # This will return the highest index, among ties.
-    if get_index:
-        out = np.zeros(np.shape(array), dtype=int)
-        for i in range(1, len(values)):
-            v = values[i]
-            out[np.abs(array - values[out]) > np.abs(array - v)] = i
-    else:
-        out = values[np.zeros(np.shape(array), dtype=int)]
-        for v in set(values[1:]):
-            out[np.abs(array - out) > np.abs(array - v)] = v
-    return out
+def do_text_as_pixel(image_fname, out_fname, font_fname, fmt='img',
+	FONT_SIZE=36, glyphs=None, lum_divs=5,
+    analysis_fname=None, linespace=4,
+    grid_nx=None, grid_ny=None, interpolation=np.median,
+    whitepoint=1, blackpoint=0):
+    '''
+    Performs the text-as-pixel algorithm.
 
-def round_down(array, values, get_index=False):
-    values = np.sort(set(values))
-    array = np.array(array)
-    # This will return the highest index, among ties.
-    if get_index:
-        out = np.zeros(np.shape(array), dtype=int)
-        for i in range(1, len(values)):
-            v = values[i]
-            out[array - v > 0] = i
-    else:
-        out = values[np.zeros(np.shape(array), dtype=int)]
-        for v in values[1:]:
-            out[array - v > 0] = v
-    return out
+    Parameters:
+        image_fname (str): The name of the image file to convert.
+        out_fname (str): The file to save the result to.
+        font_fname (str): The name of the font file to use.
+        fmt (str): The format of the result: 'img' or 'txt'.
+        FONT_SIZE (int): The font size to use.
+        glyphs (str): A string containing the posssible characters 
+        	to use. If none, all glyphs will be considered.
+        lum_divs (int): An integer from 1 to 100. If not None, the 
+        	luminosity percentiles of the glyphs will be rounded to 
+        	this many values. A low `lum_divs` will have lower 
+        	luminosity resolution, but higher color resolution since
+        	more glyphs will be available for a given luminosity. 
+        	A high `lum_divs` (or None value) will have higher
+        	luminosity resolution but lower color resolutionn.
+        	I find a `lum_div` of ~8-10 is best for most images.
+        analysis_fname (str): The name of a font analysis file for
+        	`font_fname` and `FONT_SIZE`. If provided, this file
+        	will be loaded and the font is not analyzed, saving time.
+        	TODO: Check that this is a correct analysis for the given
+        	font and font size.
+        linespace (int): The number of pixels between each line of text.
+        grid_nx (int): The number of characters per line of text. Only one of
+            `grid_nx` and `grid_ny` can be provided, since one is determined by
+            the other (and the image, glyph dimensions and line space).
+        grid_ny (int): The number of lines of text. See `grid_nx`.
+        interpolation (function): A function which takes in a pxq numerical array
+            and outputs a single number. For example, np.mean or np.median.
+            This is the method used to re-scale the image.
+        whitepoint (float): A number between `blackpoint` and 1.
+        	Image regions with luminosity above this value will be represented
+        	by the least-dark glyph.
+        blackpoint (float): A number between 0 and `whitepoint`.
+       		Image regions with luminosity below this value will be represented
+       		by the most-dark glyph.
 
-def image_to_grid(image, CHAR_W_OVER_H, 
-                  grid_nx=None, grid_ny=None, interpolation=np.median,
-                  color_weight = .5):
-
-    # Exactly one of output_width and output_height should be given.
-    if not np.logical_xor(grid_nx is None, grid_ny is None):
-        raise ValueError('Exactly one of grid dimensions must be given.')
-
-    (IMAGE_HEIGHT, IMAGE_WIDTH) = np.shape(image)
-    
-    # Compute the scale, grid dimensions, and trim size.
-    # (grid_nx * CHAR_WIDTH)/(grid_ny * CHAR_HEIGHT) = (IMAGE_WIDTH)/(IMAGE_HEIGHT)
-    # This ignores how the bottom row of text is less tall than the rest by linespace...
-    if grid_nx is not None:
-        scale = IMAGE_WIDTH/grid_nx
-        x_divs = [int(d*scale) for d in range(grid_nx+1)] #changed from int to round?
-        grid_ny = int(round(IMAGE_HEIGHT/scale * CHAR_W_OVER_H))
-        y_divs = [int(h*IMAGE_HEIGHT/grid_ny) for h in range(grid_ny+1)]
-    elif grid_ny is not None:
-        scale = IMAGE_HEIGHT/grid_ny
-        y_divs = [int(h*scale) for h in range(grid_ny+1)]
-        grid_nx = int(round(IMAGE_WIDTH/scale / CHAR_W_OVER_H))
-        x_divs = [int(d*IMAGE_WIDTH/grid_nx) for d in range(grid_nx+1)]
-
-    grid = np.zeros((grid_ny, grid_nx))
-    for x in range(grid_nx):
-        for y in range(grid_ny):
-            image_cell = image[y_divs[y]:y_divs[y+1], x_divs[x]:x_divs[x+1]]
-            grid[y,x] = interpolation(image_cell)
-            
-    return grid
-
-def text_as_pixel(image_fname, out_fname,
-                  font_fname, FONT_SIZE=36, glyphs=None, color_weight=0,
-                  analysis_fname=None, linespace=4,
-                  grid_nx=None, grid_ny=None, interpolation=np.median,
-                  whitepoint=1, blackpoint=0):
-  
+    Returns:
+        out (numpy.array): The text-as-pixel representation of the image. Each
+        	element of the array is a glyph/character, a new textual "pixel".
+    '''
     font = load_font(font_fname, FONT_SIZE)
     
     # Analyze the font, using a pre-existing analysis file if possible.
@@ -119,55 +100,81 @@ def text_as_pixel(image_fname, out_fname,
                               font_name + '_' + str(FONT_SIZE) + 'pt.tsv')        
     if os.path.isfile(analysis_fname):
         df = pd.read_csv(analysis_fname, sep='\t', index_col=0)
-    else: df = analyze_font(font_fname, analysis_fname = analysis_fname)
+    else: df = analyze_font(font_fname, FONT_SIZE=FONT_SIZE, analysis_fname = analysis_fname)
     
-    CHAR_HEIGHT = np.min(df['height'])
+    CHAR_HEIGHT = np.min(df['height']) + linespace
     CHAR_WIDTH = df.at[0,'width']
-    CHAR_W_OVER_H = CHAR_WIDTH / (CHAR_HEIGHT + linespace)
+
+    CHAR_W_OVER_H = CHAR_WIDTH / CHAR_HEIGHT
     
+    # Load image.
     image = mpimg.imread(image_fname)
+    # Decompose into a luminosity channel (L) and color channel (C).
+    ## Citation:
+    ## Decolorize: Fast, Contrast Enhancing, Color to Grayscale Conversion   
+	## Mark Grundland and Neil A. Dodgson   
+	## Pattern Recognition, vol. 40, no. 11, pp. 2891-2896, (2007). ISSN 0031-3203.   
+	## http://www.eyemaginary.com/Portfolio/TurnColorsGray.html   
+	## http://www.eyemaginary.com/Rendering/decolorize.m   
     decolorized = decolorize(image)
     [G, L, C] = [decolorized[:,:,i] for i in range(3)]
-    L = image_to_grid(L, CHAR_W_OVER_H, grid_nx=grid_nx, grid_ny=grid_ny, interpolation=interpolation)
-    C = image_to_grid(C, CHAR_W_OVER_H, grid_nx=grid_nx, grid_ny=grid_ny, interpolation=interpolation)
+
+    # Re-scale image such that each pixel is suitable for a single glyph.
+    # TODO: This ignores how the bottom text line is less tall than the rest by `linespace`...
+    L = image_to_grid(L, W_OVER_H=CHAR_W_OVER_H, grid_nx=grid_nx, grid_ny=grid_ny, interpolation=interpolation)
+    C = image_to_grid(C, W_OVER_H=CHAR_W_OVER_H, grid_nx=grid_nx, grid_ny=grid_ny, interpolation=interpolation)
     
+    # Coerce values to be between [0, 1] inclusive.
+    L = (L - np.min(L))/(np.max(L) - np.min(L))
     C = (C - np.min(C))/(np.max(C) - np.min(C))
-    
+
+    # Scale to [0, 100] inclusive and round down.
     L = (L*100 - 1e-8).astype(int)
     C = (C*100 - 1e-8).astype(int)
-    
-    if glyphs is not None: df = df.loc[df['glyph'].isin([g for g in glyphs])].reset_index(drop=True)
+
+    # Cutoff non-permissible values, just in case weird rounding happened.
+    L[L < 0] = 0
+    L[L > 100] = 100
+    C[C < 0] = 0
+    C[C > 100] = 100
+
+    # Collect the set of glyphs to use.
+    if glyphs is not None: df = df.loc[df['glyph'].isin([g for g in set(glyphs)])].reset_index(drop=True)
+
+    # Set the luminosity percentile of each glyph relative to the others.
+    ## The darkest will be 0, and lightest will be 100.
     df['lum_pct'] = ((whitepoint - df['darkness']/np.max(df['darkness'])*(whitepoint-blackpoint))*100).astype(int)
+
+    # Group luminosity percentiles into `lum_divs` groups. Sort by luminosity percentile.
+    if lum_divs is not None: df['lum_pct'] = np.round(np.round(df['lum_pct'] /100 *lum_divs) *100 /lum_divs)
     df = df.iloc[np.argsort(df['lum_pct']),:].reset_index(drop=True)
 
-    #upper divide: choose this row's value if the luminosity is less than lum_upper
-    #df['lum_upper'] = np.append(
-    #        (df['lum_pct'][0:-1].to_numpy() + df['lum_pct'][1:].to_numpy() )/2,
-    #        df.at[np.shape(df)[0]-1,'lum_pct'])
+    # Count the number of glyphs at each luminosity percentile value. 
     df['lum_unique'] = True
     unique_v, unique_i = np.unique(df['lum_pct'], return_index=True)
     divs = pd.Series(index=df.loc[unique_i,'lum_pct'], name='chars')
     df['PCA'] = np.nan
     pca = PCA(n_components=1)
-    # For each unique luminosity percentile
     for i in range(len(unique_i)):
-        # Get the set of corresponding characters
-        if i == len(unique_i) -1:
+        if i == len(unique_i)-1:
             start = unique_i[i]
             end = df.index[-1]
         else:
             start = unique_i[i]
             end = unique_i[i+1]-1
-        # If the set size is greater than zero, do this:
+        # If there are more than one glyph at this percentile...
         if end - start != 0:
             df.loc[start:end,'lum_unique'] = False
-            #df.loc[start:end,'lum_upper'] = np.max(df.loc[start:end,'lum_upper'])
+            # Order them using their CMDS embedding: Center them and project onto the highest
+            # PC axis. Then, record their order from left to right (lowest to highest CMDS1).
             df.loc[start:end,'PCA'] = pca_proj(df.loc[start:end,['CMDS1','CMDS2']], 1)[:,0]
             pca_order = np.argsort(df.loc[start:end,'PCA']).values
             divs[df.at[unique_i[i],'lum_pct']] = df.loc[start:end, 'glyph'].values[pca_order]
         else:
             divs[df.at[unique_i[i],'lum_pct'] ]= np.atleast_1d(df.at[unique_i[i],'glyph'])
     
+    # Create a spectrum mapping where the (x,y) value is the character which will be used
+    ## For a given (luminosity, color) value.
     char_map = np.full((100,100), ' ')
     lum_pct_ramp = round_to_nearest_value(range(100), df['lum_pct'][unique_i])
     for lum in range(100):
@@ -175,24 +182,20 @@ def text_as_pixel(image_fname, out_fname,
             x = divs.at[lum_pct_ramp[lum]]
             char_map[lum, clr] = x[int(np.floor(clr/100*len(x)))]
 
-    # IF MERGE: LUM_PCT NEEDS TO BECOME AVERAGE OF THE TOTAL SET
-
-    # whitechar_index = np.argmin(df['darkness'])
-    # blackchar_index = np.argmax(df['darkness'])
-
+    # Replace each pixel in the re-scaled image with a glyph using the spectrum mapping. 
     out = [char_map[(lum,clr)] for (lum,clr) in zip(L.flatten(),C.flatten())]
     out = np.array(out).reshape(np.shape(L))
-    if color_weight == 0: 
-        write_output(out, out_fname, format='img', font=font, df=df, linespace=4)
-        return out
-    
-    # TO DO: clustering for larger color_weights
+
+    # Write output.
+    write_text_as_pixel(out, out_fname, fmt=fmt, font=font, 
+    	CHAR_HEIGHT = CHAR_HEIGHT, CHAR_WIDTH = CHAR_WIDTH)
     
     return out
 
-# bug: mpimg.imread() rotates some pictures...
-result = text_as_pixel(image_fname='../img/apple.jpg', out_fname = 'temp.jpg',
-                       font_fname='../fonts/cour.ttf', FONT_SIZE=36, glyphs=None, color_weight=0,
-                       analysis_fname=None, linespace=4,
-                       grid_nx=200, grid_ny=None, interpolation=np.median,
-                       whitepoint=1, blackpoint=0)
+# DEMO:
+#result = do_text_as_pixel(image_fname='../img/demo6.png', out_fname = '../results/demo6_result.jpg',
+#                       font_fname='../fonts/PTM55FT.ttf', FONT_SIZE=16, 
+#                       glyphs=None,
+#                       analysis_fname=None, linespace=4, lum_divs=10,
+#                       grid_nx=200, grid_ny=None, interpolation=np.median,
+#                       whitepoint=.95, blackpoint=.05)

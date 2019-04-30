@@ -195,7 +195,7 @@ def do_text_as_pixel(image_fname, out_fname, font_fname, fmt='img',
 # DEMO:
 #result = do_text_as_pixel(image_fname='../img/demo6.png', out_fname = '../results/demo6_result.jpg',
 #                       font_fname='../fonts/PTM55FT.ttf', FONT_SIZE=16, 
-#                       glyphs=None,
+#                       glyphs='THIS is a TEST! :) @#$%^&76940',
 #                       analysis_fname=None, linespace=4, lum_divs=10,
 #                       grid_nx=200, grid_ny=None, interpolation=np.median,
 #                       whitepoint=.95, blackpoint=.05)

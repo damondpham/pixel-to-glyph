@@ -4,11 +4,11 @@ An ASCII art generator: it makes a block of text which resembles an input image.
 
 Unlike many other existing ASCII art generators, it takes into account the color content of the image as well. 
 
-![Figure 1: Demonstration on a test image.](fig0.png)
+![Figure 1: Demonstration on a test image.](fig1.png)
 
-![Figure 2: Demonstration of font and glyph set choices](fig1.png)
+![Figure 2: Demonstration of font and glyph set choices](fig2.png)
 
-![Figure 3: Comparison of `lum_div` setting choices](fig2.gif)
+![Figure 3: Comparison of `lum_div` setting choices](fig3.gif)
 
 #### Features 
 text-as-pixel allows you to choose:

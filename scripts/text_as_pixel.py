@@ -46,7 +46,8 @@ def do_text_as_pixel(image_fname, out_fname, font_fname, fmt='img',
 	FONT_SIZE=36, glyphs=None, lum_div=5,
     analysis_fname=None, linespace=4,
     grid_nx=None, grid_ny=None, interpolation=np.median,
-    whitepoint=1, blackpoint=0):
+    whitepoint=1, blackpoint=0,
+    save_spectrum=False, spectrum_fname=None):
     '''
     Performs the text-as-pixel algorithm.
 
@@ -85,6 +86,9 @@ def do_text_as_pixel(image_fname, out_fname, font_fname, fmt='img',
         blackpoint (float): A number between 0 and `whitepoint`.
        		Image regions with luminosity below this value will be represented
        		by the most-dark glyph.
+        save_spectrum (bool): Do you want to save the spectrum (character mapping)
+            to a file?
+        spectrum_fname (str): The name of the file to save the spectrum to.
 
     Returns:
         out (numpy.array): The text-as-pixel representation of the image. Each
@@ -181,6 +185,10 @@ def do_text_as_pixel(image_fname, out_fname, font_fname, fmt='img',
         for clr in range(100):
             x = divs.at[lum_pct_ramp[lum]]
             char_map[lum, clr] = x[int(np.floor(clr/100*len(x)))]
+    
+    if save_spectrum:
+        write_text_as_pixel(char_map, spectrum_fname, fmt = fmt, font = font,
+                            CHAR_HEIGHT = CHAR_HEIGHT, CHAR_WIDTH = CHAR_WIDTH)
 
     # Replace each pixel in the re-scaled image with a glyph using the spectrum mapping. 
     out = [char_map[(lum,clr)] for (lum,clr) in zip(L.flatten(),C.flatten())]
@@ -194,10 +202,11 @@ def do_text_as_pixel(image_fname, out_fname, font_fname, fmt='img',
 
 '''
 # DEMO:
-result = do_text_as_pixel(image_fname='../img/demo.jpg', out_fname = '../results/demo_result.jpg',
+result = do_text_as_pixel(image_fname='../img/demo6.png', out_fname = '../results/demo_result.jpg',
                        font_fname='../fonts/PTM55FT.ttf', FONT_SIZE=16, 
-                       glyphs=' !*^,.:[]|- hong kong HONG KONG',
+                       glyphs=None,
                        analysis_fname=None, linespace=4, lum_div=15,
                        grid_nx=200, grid_ny=None, interpolation=np.median,
-                       whitepoint=.8, blackpoint=.00)
+                       whitepoint=1, blackpoint=.00,
+                       save_spectrum=True, spectrum_fname='../results/demo_spectrum.jpg')
 '''

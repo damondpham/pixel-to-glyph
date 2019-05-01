@@ -41,19 +41,21 @@ Here is an overview of the steps:
 	* Compute pairwise dissimilarity for each glyph via minimum Hamming distance out of all horizontal translations.
 	* Create a 2D embedding of the glyphs via CMDS of the pairwise dissimilarity matrix.
 
-![Figure 4: Example CMDS embedding](fig4.png)
+![Figure 4: Finding the pairwise dissimilarity for "!" and "|"](fig4.png)
+
+![Figure 5: Example CMDS embedding](fig5.png)
 
 2. Format the image:
-	* Perform the Decolorize algorithm (see citation) to obtain a luminosity and color channel for the image. 
+	* Perform the Decolorize algorithm (see citation) to obtain a luminosity and color channel for the image. (TODO: allow for Decolorize hyperparameters to be tweaked.)
 	* Re-scale by superimposing a grid onto the image such that each cell will become a glyph in the output. 
 	* Convert each cell into a single (luminosity, color) value via the interpolation method (e.g. median).
 3. Map a glyph onto each pixel:
 	* Convert glyph darkness into a luminosity percentile, relative to the subset of potential glyphs.
 	* Round luminosity percentiles such that there are `lum_div` unique percentile values.
-	* Among all glyphs at a given luminosity percentile, order them by projecting their CMDS embeddings onto their 1D PCA subspace. Assign each glyph, in order, to an equaly-sized region of the colorspace for that luminosity percentile. For example, if the PCA ordering was ['y','q','p'], lower-third color values will be assigned 'y', and upper-third color values will be assigned 'p'. (If there is only one glyph at the luminosity percentile, it will be chosen for any color.)
+	* Among all glyphs at a given luminosity percentile, order them by projecting their CMDS embeddings onto their 1D PCA subspace. Assign each glyph, in order, to an equally-sized region of the colorspace for that luminosity percentile. For example, if the PCA ordering was ['y','q','p'], lower-third color values will be assigned 'y', and upper-third color values will be assigned 'p'. (If there is only one glyph at the luminosity percentile, it will be chosen for any color.)
 	* The mapping from a pixel's (luminosity, color) to a glyph is then the following: (I) Round the luminosity to the nearest available percentile. (II) Choose the glyph for the color region it occupies. 
 
-![Figure 5: Spectrum of (luminosity, color) to glyph mapping.](fig5.png)
+![Figure 6: Spectrum of (luminosity, color) to glyph mapping.](fig6.png)
 
 4. Make the output:
 	* Apply the mapping to each pixel in the re-scaled image.

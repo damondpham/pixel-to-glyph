@@ -52,8 +52,12 @@ Here is an overview of the steps:
 	* Round luminosity percentiles such that there are `lum_div` unique percentile values.
 	* Among all glyphs at a given luminosity percentile, order them by projecting their CMDS embeddings onto their 1D PCA subspace. Assign each glyph, in order, to an equaly-sized region of the colorspace for that luminosity percentile. For example, if the PCA ordering was ['y','q','p'], lower-third color values will be assigned 'y', and upper-third color values will be assigned 'p'. (If there is only one glyph at the luminosity percentile, it will be chosen for any color.)
 	* The mapping from a pixel's (luminosity, color) to a glyph is then the following: (I) Round the luminosity to the nearest available percentile. (II) Choose the glyph for the color region it occupies. 
-	* Apply this mapping to each pixel in the re-scaled image.
-4. Write results to an image file or text file.
+
+![Figure 5: Spectrum of (luminosity, color) to glyph mapping.](fig5.png)
+
+4. Make the output:
+	* Apply the mapping to each pixel in the re-scaled image.
+	* Write results to an image file or text file.
 
 ## Citation
 

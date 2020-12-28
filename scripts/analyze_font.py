@@ -25,7 +25,7 @@ def load_font(typeface_fname, FONT_SIZE=36):
     return font
 
 def analyze_font(font, unicodes=range(0x0020, 0x007E), evenly_space_darkness=0.5,
-    save=True, font_analysis_fname="font_analysis.tsv"):
+    save=True, font_analysis_fname="font_analysis.tsv", verbose=True):
     '''
     Collects information about the characters in a font to use later when building images.
     If the glyphs for the given unicode values are not monospace, the largest monospace set will be used.
@@ -43,6 +43,7 @@ def analyze_font(font, unicodes=range(0x0020, 0x007E), evenly_space_darkness=0.5
             one to only use the second, and a value of 0.5 to use both equally.
         save (bool): Should the analysis be saved to a tsv file, `font_analysis_fname`?
         font_analysis_fname (str): The file to save the analysis to.
+        verbose (bool): Print occasional updates?
 
     Returns:
         df (pandas.DataFrame): A table of information about each glyph in the monospace set:
@@ -177,7 +178,7 @@ def analyze_font(font, unicodes=range(0x0020, 0x007E), evenly_space_darkness=0.5
 
     return df
 
-def plot_font_CMDS(font, font_analysis):
+def plot_font_CMDS(font, font_analysis, plot_fname):
     '''
     Display the CMDS embedding of a font analysis.
 
@@ -198,3 +199,5 @@ def plot_font_CMDS(font, font_analysis):
             (font_analysis.at[i,'CMDS1']*cmds_dim + WIDTH, font_analysis.at[i,'CMDS2']*cmds_dim + HEIGHT), 
             chr(font_analysis.at[i, 'unicode']), font=font
         )
+
+    image.save(plot_fname)

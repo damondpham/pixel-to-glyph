@@ -10,30 +10,31 @@ import matplotlib.image as mpimg
 # http://www.eyemaginary.com/Rendering/decolorize.m
 
 def decolorize(RGB, scale=None, effect=.5, noise=.001):
-    
+
     # We need the values to be on [0, 1].
     ## This corrects for when values are integers [0, 255].
     if RGB.dtype != 'float32':
         if (np.min(RGB) >= 0) and (np.max(RGB) <= 255):
             RGB = RGB.astype(float) / 255
         # Not sure if other cases exist...
-    
+
     dims = np.shape(RGB)
-    
-    # If the image is black and white, we only have 
+
+    # If the image is black and white, we only have
     ## the luminence channel itself (Y/L).
-    if len(dims) == 1: 
+    if len(dims) == 2:
         print('Image is already decolorized.')
-        return RGB
-    
+        return np.stack([RGB, RGB, RGB]).transpose([1,2,0])
+
     tol = 100*np.finfo(float).eps
     if scale is None: scale = np.sqrt(2*min(dims[0:2]))
 
     #Remove transparency channel, if any.
-    if dims[2] == 4: 
-        RGB = RGB[:,:,0:3]
-        dims = np.shape(RGB)
-    
+    if len(dims) > 2:
+        if dims[2] == 4:
+            RGB = RGB[:,:,0:3]
+            dims = np.shape(RGB)
+
     #We must compute achromatic luminence (Y)
     ## and the orthogonal chromatic channels (P, Q).
     # First, vectorize the image such that each pixel is a (R,G,B) column...
@@ -49,7 +50,7 @@ def decolorize(RGB, scale=None, effect=.5, noise=.001):
     # S: saturation
     Lmax = 1
     Lscale = 0.66856793424088827189
-    Smax = 1.1180339887498948482 
+    Smax = 1.1180339887498948482
     alter = effect*(Lmax/Smax)
 
     # C: chroma channel
@@ -64,13 +65,13 @@ def decolorize(RGB, scale=None, effect=.5, noise=.001):
     redo = look[:,0] < 0
     look[redo,0] = (abs(look[redo,0]) % dims[0])
     redo = look[:,1] < 0
-    look[redo,1] = (abs(look[redo,1]) % dims[1])    
+    look[redo,1] = (abs(look[redo,1]) % dims[1])
     redo = look[:,0] >= dims[0]
     look[redo,0] = dims[0] - (look[redo,0] % dims[0]) -1
     redo = look[:,1] >= dims[1]
     look[redo,1] = dims[1] - (look[redo,1] % dims[1]) -1
     look = (look[:,0] + dims[0] * look[:,1]).astype(int)
-    
+
     # Compute
     delta = YPQ - YPQ[:,look]
     contrast_change = abs(delta[0,:])
@@ -83,33 +84,26 @@ def decolorize(RGB, scale=None, effect=.5, noise=.001):
     axis = np.multiply(w, contrast_dir)
     axis = np.multiply(delta[1:3,:], np.array([axis, axis]))
     axis = np.sum(axis,1)
-    
+
     proj = YPQ[1,:]*axis[0] + YPQ[2,:]*axis[1]
     proj = proj / (np.quantile(abs(proj), 1-noise) + tol)
-    
+
     # L: luminence channel (black-and-white iamge)
     # C: color projection channel
     L = YPQ[0,:]
     C = effect*proj
-    
+
     # G: composite, decolorized image
-    G = L + C 
+    G = L + C
     img_range = np.quantile(G, (noise, 1-noise))
     G = (G - img_range[0]) / (img_range[1] - img_range[0] + tol)
     tgt_range = effect * np.array([0, Lmax]) + (1-effect) * np.quantile(YPQ[0,:], (noise, 1-noise))
     G = tgt_range[0] + G*(tgt_range[1] - tgt_range[0] + tol)
     G = np.minimum(np.maximum(G, YPQ[0,:] - alter*Ch), YPQ[0,:] + alter*Ch)
     G = np.minimum(np.maximum(G, 0), Lmax)
-    
+
     (G, L, C) = [X.reshape(dims[1], dims[0]).transpose() for X in (G, L, C)]
-    
+
     GLC = np.stack([G, L,C]).transpose([1,2,0])
-    
+
     return GLC
-
-
-# Demo:
-# RGB = mpimg.imread(img_fname) # read image as matrix
-# decolorized =  decolorize(RGB) # decolorize
-# plt.imshow(decolorized[:,:,0]) # view image
-# plt.imsave('decolorized.jpg', decolorized[:,:,0], cmap=plt.cm.gray, vmin=0, vmax=1) # save image

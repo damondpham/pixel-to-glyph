@@ -100,9 +100,9 @@ def image_to_grid(image, W_OVER_H, grid_nx=None, grid_ny=None, interpolation=np.
         x_divs = [int(d*IMAGE_WIDTH/grid_nx) for d in range(grid_nx+1)]
 
     # Superimpose grid and interpolate.
-    grid = np.zeros((grid_ny, grid_nx))
-    for x in range(grid_nx):
-        for y in range(grid_ny):
+    grid = np.zeros((int(grid_ny), int(grid_nx)))
+    for x in range(int(grid_nx)):
+        for y in range(int(grid_ny)):
             image_cell = image[y_divs[y]:y_divs[y+1], x_divs[x]:x_divs[x+1]]
             if image_cell.size == 0:
                 image_cell = image[y_divs[y], x_divs[x]]
